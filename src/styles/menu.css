@@ -1,0 +1,61 @@
+/* Small native dialog for save slots and session actions. */
+#menu-dialog {
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid #aab99e;
+  border-radius: 5px;
+  color: inherit;
+  background: #f1f4e9;
+}
+dialog::backdrop {
+  background: #22332985;
+}
+.menu-content h1 {
+  font-size: 21px;
+  margin: 0 0 18px;
+  font-weight: 600;
+}
+.field-label {
+  display: block;
+  margin: 16px 0 6px;
+  font-size: 12px;
+}
+.menu-content select {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fbfcf6;
+}
+.menu-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.menu-buttons button {
+  flex: 1;
+}
+#slot-detail:empty,
+#menu-notice:empty {
+  display: none;
+}
+#slot-detail {
+  margin: 8px 0;
+}
+#menu-notice {
+  background: #f3dfcc;
+  padding: 8px;
+  color: #884923;
+  font-size: 12px;
+}
+.setting {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 12px;
+}
+.setting input {
+  accent-color: #5e784c;
+}

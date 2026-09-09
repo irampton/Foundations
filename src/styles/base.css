@@ -1,0 +1,107 @@
+/* Shared compact game controls and accessible focus states. */
+:root {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #293c30;
+  background: #e8eddf;
+  --line: #cdd5c5;
+  --muted: #63705c;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+canvas:focus-visible {
+  outline: 2px solid #aa7837;
+  outline-offset: 2px;
+}
+button,
+.button {
+  border: 1px solid #becab3;
+  background: #f6f8f0;
+  border-radius: 3px;
+  padding: 6px 10px;
+}
+button:hover:not(:disabled) {
+  background: #e1e9d7;
+}
+.button.primary {
+  background: #3d6348;
+  color: #fff;
+  border-color: #3d6348;
+}
+.icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.icon-button {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+.text-button {
+  background: none;
+  border: 0;
+  padding: 3px;
+}
+.full {
+  width: 100%;
+}
+.muted,
+.cost,
+small {
+  color: var(--muted);
+}
+.cost,
+.small,
+small {
+  font-size: 11px;
+}
+small {
+  font-weight: 400;
+}
+.negative {
+  color: #a2472b;
+}
+.toast {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  padding: 9px 13px;
+  max-width: 460px;
+  border-radius: 3px;
+  color: #fff;
+  background: #2c4635;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.toast.visible {
+  opacity: 1;
+}
+[hidden] {
+  display: none !important;
+}

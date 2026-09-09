@@ -1,0 +1,118 @@
+/* Dense purchase rows, a shared workforce quantity, and the production table. */
+.gather-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.gather-button {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  font-size: 12px;
+}
+.building-row,
+.job-row,
+.tech-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 43px;
+  border-bottom: 1px solid #dce2d3;
+}
+.building-row > span:first-child,
+.job-row > span:first-child,
+.tech-card > span:first-child {
+  flex: 1;
+}
+.building-row .button {
+  min-width: 29px;
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.building-row .cost {
+  max-width: 100px;
+  text-align: right;
+}
+.owned {
+  margin-left: 5px;
+  font-size: 12px;
+  color: #63794f;
+  font-variant-numeric: tabular-nums;
+}
+.worker-summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0 12px;
+}
+.worker-summary b {
+  margin-left: 4px;
+}
+.hire-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.quantity-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.quantity-field input {
+  width: 76px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  background: #fafcf6;
+  border-radius: 3px;
+}
+.assignment-controls {
+  display: flex;
+  gap: 3px;
+}
+.assignment-controls button {
+  min-width: 28px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.resource-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.resource-ledger th,
+.resource-ledger td {
+  padding: 11px 5px;
+  text-align: right;
+  border-bottom: 1px solid #dce2d3;
+  font-weight: 400;
+}
+.resource-ledger th:first-child {
+  text-align: left;
+}
+.resource-ledger thead th {
+  color: var(--muted);
+  font-size: 11px;
+}
+.unavailable {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 0;
+}
+.shortage {
+  background: #f2dcca;
+  color: #934924;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.losses {
+  padding: 10px 0;
+  color: #934924;
+  font-size: 11px;
+}
