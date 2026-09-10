@@ -1,4 +1,4 @@
-// Real-browser acceptance covers the initial loop, persistence, pause, and locked research.
+// Real-browser acceptance covers the initial loop, research, persistence, and pause.
 import { test, expect } from '@playwright/test';
 
 async function savedState(page) {
@@ -14,16 +14,22 @@ async function begin(page) {
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 
+async function buildFirstCottage(page) {
+  await page.getByRole('button', { name: 'Technology', exact: true }).click();
+  await page.locator('[data-technology="masonry"]').click();
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await page.getByRole('button', { name: 'Build Cottage', exact: true }).click();
+}
+
 test('fresh settlement gathers, constructs, hires, assigns, and produces', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await begin(page);
   await expect(page.locator('#scene canvas')).toBeVisible();
-  await page.getByRole('button', { name: 'Build Tent', exact: true }).click();
+  await buildFirstCottage(page);
   await expect(page.locator('#construction-status')).toContainText('Building:');
-  await page.getByRole('button', { name: 'Build Tent', exact: true }).click();
   await page.getByRole('button', { name: /Cut wood/ }).click();
-  expect((await savedState(page)).resources.wood).toBe(197);
+  expect((await savedState(page)).resources.wood).toBe(91);
   await page.getByRole('button', { name: 'Workers', exact: true }).click();
   await page.getByRole('button', { name: 'Create Worker', exact: true }).click();
   await page.getByRole('button', { name: 'Assign Woodcutter', exact: true }).click();
@@ -53,7 +59,7 @@ test('pause and main menu prevent production; reload preserves jobs without offl
   page,
 }) => {
   await begin(page);
-  await page.getByRole('button', { name: 'Build Tent', exact: true }).click();
+  await buildFirstCottage(page);
   await page.getByRole('button', { name: 'Workers', exact: true }).click();
   await page.getByRole('button', { name: 'Create Worker', exact: true }).click();
   await page.getByRole('button', { name: 'Assign Miner', exact: true }).click();
@@ -70,14 +76,15 @@ test('pause and main menu prevent production; reload preserves jobs without offl
   expect(await savedState(page)).toEqual(paused);
 });
 
-test('invalid imports preserve a valid slot; technology has no purchase actions', async ({
+test('invalid imports preserve a valid slot; technology exposes the full tree', async ({
   page,
 }) => {
   await begin(page);
   const initial = await savedState(page);
   await page.getByRole('button', { name: 'Technology', exact: true }).click();
-  await expect(page.locator('.tech-card')).toHaveCount(4);
-  await expect(page.locator('.tech-card button')).toHaveCount(0);
+  await expect(page.locator('.tech-card')).toHaveCount(30);
+  await expect(page.locator('[data-technology="masonry"]')).toBeEnabled();
+  await expect(page.locator('[data-technology="construction"]')).toBeDisabled();
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
   await page.locator('#import-file').setInputFiles({
     name: 'broken.json',

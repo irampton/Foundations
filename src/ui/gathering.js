@@ -1,6 +1,6 @@
 // Persistent gather buttons and the single inventory readout in the top bar.
 import { CATALOG } from '../game/catalog.js';
-import { capacity, rates } from '../game/simulation.js';
+import { capacity, gatherYield, rates } from '../game/simulation.js';
 import { signed } from './format.js';
 import { icon } from './icons.js';
 
@@ -11,7 +11,8 @@ export function gatherCards(state) {
   return `<div class="gather-grid">${resources
     .map((key, index) => {
       const full = state.resources[key] >= capacity(state, key);
-      return `<button class="gather-button" data-action="gather" data-resource="${key}" aria-label="${['Gather food', 'Cut wood', 'Mine stone'][index]}" title="${full ? 'Storage full' : `Gather +1 ${key} (${index + 1})`}" ${full ? 'disabled' : ''}>${icon(symbols[key])}${CATALOG.resources[key].label} +1</button>`;
+      const amount = gatherYield(state);
+      return `<button class="gather-button" data-action="gather" data-resource="${key}" aria-label="${['Gather food', 'Cut wood', 'Mine stone'][index]}" title="${full ? 'Storage full' : `Gather +${amount} ${key} (${index + 1})`}" ${full ? 'disabled' : ''}>${icon(symbols[key])}${CATALOG.resources[key].label} +${amount}</button>`;
     })
     .join('')}</div>`;
 }

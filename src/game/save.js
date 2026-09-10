@@ -1,9 +1,8 @@
 /** Versioned JSON save serialization with strict simulation-state validation. */
 
-import { BASIC_RESOURCES, CATALOG, JOBS } from './catalog.js';
+import { BASIC_RESOURCES, CATALOG, JOBS, RESOURCE_KEYS, TECHNOLOGY_IDS } from './catalog.js';
 import { capacity, housing } from './simulation.js';
 
-const RESOURCE_KEYS = Object.freeze([...BASIC_RESOURCES, 'skins']);
 export const SAVE_LIMITS = Object.freeze({
   buildings: 10_000,
   workers: 10_000,
@@ -20,6 +19,8 @@ const STATE_KEYS = Object.freeze([
   'resources',
   'buildings',
   'workers',
+  'technologies',
+  'age',
   'corpses',
   'shortageSeconds',
   'nextStarvationAt',
@@ -52,7 +53,16 @@ function nonnegativeInteger(value, label) {
 export function validateState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) fail('root must be an object');
   exactKeys(state, STATE_KEYS, 'root');
-  if (state.version !== 2 || state.layoutVersion !== 1) fail('unsupported version');
+  if (state.version !== 3 || state.layoutVersion !== 1) fail('unsupported version');
+  nonnegativeInteger(state.age, 'age');
+  if (state.age > 4) fail('invalid age');
+  if (
+    !Array.isArray(state.technologies) ||
+    new Set(state.technologies).size !== state.technologies.length
+  )
+    fail('technologies must be a unique array');
+  for (const technology of state.technologies)
+    if (!TECHNOLOGY_IDS.includes(technology)) fail('unknown technology');
   nonnegativeInteger(state.seconds, 'seconds');
   if (!Number.isSafeInteger(state.seed)) fail('seed must be a safe integer');
   nonnegativeInteger(state.rngState, 'rngState');
@@ -84,7 +94,9 @@ export function validateState(state) {
       fail('building IDs must be unique positive integers');
     if (typeof building.type !== 'string' || !own(CATALOG.buildings, building.type))
       fail('unknown building type');
-    if (!CATALOG.buildings[building.type].available) fail('building type is not implemented');
+    const requirement = CATALOG.buildings[building.type].requires;
+    if (requirement && !state.technologies.includes(requirement))
+      fail('building technology requirement is missing');
     if (!Number.isFinite(building.x) || !Number.isFinite(building.z))
       fail('building coordinates must be finite');
     if (
@@ -142,10 +154,21 @@ export function deserialize(text) {
   } catch {
     fail('malformed JSON');
   }
-  // Compatibility boundary for the original seconds counter's legacy field name.
+  // Compatibility boundaries for both prototype save schemas.
   if (parsed?.version === 1 && Object.hasOwn(parsed, 'time') && !Object.hasOwn(parsed, 'seconds')) {
     const { time: seconds, ...legacy } = parsed;
     parsed = { ...legacy, version: 2, seconds };
+  }
+  if (parsed?.version === 2) {
+    parsed = {
+      ...parsed,
+      version: 3,
+      age: 0,
+      technologies: [],
+      resources: Object.fromEntries(
+        RESOURCE_KEYS.map((key) => [key, parsed.resources?.[key] ?? 0]),
+      ),
+    };
   }
   return validateState(parsed);
 }

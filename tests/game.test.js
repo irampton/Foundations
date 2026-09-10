@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG } from '../src/game/catalog.js';
+import { CATALOG, RESOURCE_KEYS } from '../src/game/catalog.js';
 import {
   assign,
   build,
@@ -14,6 +14,9 @@ import {
   housing,
   jobCount,
   rates,
+  research,
+  buildingCost,
+  gatherYield,
   tick,
   unemployed,
 } from '../src/game/simulation.js';
@@ -21,7 +24,12 @@ import { deserialize, SAVE_LIMITS, serialize } from '../src/game/save.js';
 
 test('new games have deterministic storage and separated starter buildings', () => {
   const state = createGame(42);
-  assert.deepEqual(state.resources, { food: 200, wood: 200, stone: 200, skins: 0 });
+  assert.deepEqual(
+    state.resources,
+    Object.fromEntries(
+      RESOURCE_KEYS.map((key) => [key, ['food', 'wood', 'stone'].includes(key) ? 200 : 0]),
+    ),
+  );
   assert.equal(capacity(state, 'food'), 200);
   assert.equal(capacity(state, 'wood'), 200);
   assert.equal(capacity(state, 'stone'), 200);
@@ -40,7 +48,8 @@ test('manual gathering respects capacity', () => {
 
 test('tents provide housing and workers cost food', () => {
   const state = createGame();
-  assert.equal(CATALOG.buildings.tent.cost.wood, 2);
+  assert.deepEqual(CATALOG.buildings.tent.cost, { skins: 2, wood: 2 });
+  state.resources.skins = 14;
   assert.equal(build(state, 'tent', 2).ok, true);
   assert.equal(housing(state), 2);
   assert.equal(createWorkers(state, 2).ok, true);
@@ -51,6 +60,7 @@ test('tents provide housing and workers cost food', () => {
 
 test('invalid and unaffordable purchases are atomic', () => {
   const state = createGame();
+  state.resources.skins = 6;
   const before = structuredClone(state);
   assert.equal(build(state, 'tent', 101).ok, false);
   assert.deepEqual(state, before);
@@ -58,12 +68,13 @@ test('invalid and unaffordable purchases are atomic', () => {
   assert.deepEqual(state, before);
   assert.equal(build(state, 'tent', 1.5).ok, false);
   assert.deepEqual(state, before);
-  assert.equal(build(state, 'hut').ok, false);
+  assert.equal(build(state, 'hut', 100).ok, false);
   assert.deepEqual(state, before);
 });
 
 test('job changes clamp to idle and current workers', () => {
   const state = createGame();
+  state.resources.skins = 14;
   build(state, 'tent', 3);
   createWorkers(state, 3);
   assert.equal(assign(state, 'farmer', 9).amount, 3);
@@ -76,6 +87,7 @@ test('job changes clamp to idle and current workers', () => {
 
 test('production, upkeep, fractions, and crowding follow one-second rules', () => {
   const state = createGame();
+  state.resources.skins = 14;
   build(state, 'tent', 7);
   createWorkers(state, 5);
   assign(state, 'farmer', 4);
@@ -97,6 +109,7 @@ test('production, upkeep, fractions, and crowding follow one-second rules', () =
 
 test('starvation kills at 30 seconds, repeats every 10, and a fed tick resets it', () => {
   const state = createGame();
+  state.resources.skins = 4;
   build(state, 'tent', 2);
   createWorkers(state, 2);
   state.resources.food = 0;
@@ -132,6 +145,7 @@ test('new storage applies immediately and placement remains collision-free', () 
 
 test('save round trips and rejects malformed or inconsistent state', () => {
   const state = createGame(987);
+  state.resources.skins = 4;
   build(state, 'tent', 2);
   createWorkers(state, 1);
   assign(state, 'miner', 1);
@@ -147,11 +161,11 @@ test('save round trips and rejects malformed or inconsistent state', () => {
   const futureBuilding = structuredClone(state);
   futureBuilding.buildings.push({ id: 99, type: 'cottage', x: 99, z: 99, builtAt: 0 });
   futureBuilding.nextBuildingId = 100;
-  assert.throws(() => deserialize(JSON.stringify(futureBuilding)), /unknown building type/);
+  assert.throws(() => deserialize(JSON.stringify(futureBuilding)), /technology requirement/);
 });
 
-test('save validation rejects inherited catalog keys and unavailable buildings', () => {
-  for (const type of ['__proto__', 'constructor', 'hut']) {
+test('save validation rejects inherited catalog keys', () => {
+  for (const type of ['__proto__', 'constructor']) {
     const state = createGame();
     state.buildings.push({ id: state.nextBuildingId++, type, x: 20, z: 20, builtAt: 0 });
     assert.throws(() => serialize(state), /unknown building type|not implemented/);

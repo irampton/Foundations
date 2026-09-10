@@ -72,6 +72,8 @@ export function createBuilding(type, p) {
     group.add(box(1.45, 0.85, 1.2, p.wood));
     group.add(roof(1.6, 1.38, 0.7, p.roofDark, 1.2));
   } else if (type === 'cottage') home(group, p, 1.65, 0.82);
+  else if (type === 'house') home(group, p, 1.9, 1);
+  else if (type === 'mansion') home(group, p, 2.5, 1.25);
   else if (type === 'barn') {
     group.add(box(2.3, 1.35, 1.75, p.roof));
     group.add(roof(2.55, 2, 1.08, p.roofDark, 1.88));
@@ -79,7 +81,37 @@ export function createBuilding(type, p) {
     doors.position.z = 0.91;
     group.add(doors);
   } else if (type === 'woodStockpile') pile(group, p.wood, false);
-  else pile(group, p.stone, true);
+  else if (type === 'stoneStockpile') pile(group, p.stone, true);
+  else if (type === 'mill') {
+    group.add(box(1.4, 1.7, 1.4, p.cream));
+    const hub = prepareMesh(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.25, 8), p.darkWood),
+    );
+    hub.rotation.x = Math.PI / 2;
+    hub.position.set(0, 1.45, 0.83);
+    group.add(hub);
+    for (let i = 0; i < 4; i++) {
+      const sail = box(0.18, 1.25, 0.06, p.canvas, 0.62);
+      sail.position.set(
+        Math.sin((i * Math.PI) / 2) * 0.55,
+        1.45 + Math.cos((i * Math.PI) / 2) * 0.55,
+        0.98,
+      );
+      sail.rotation.z = (-i * Math.PI) / 2;
+      group.add(sail);
+    }
+  } else if (type === 'graveyard') {
+    group.add(box(2.2, 0.08, 1.8, p.stone, 0.04));
+    for (let i = 0; i < 6; i++) {
+      const marker = box(0.18, 0.55, 0.12, p.stone, 0.28);
+      marker.position.set(((i % 3) - 0.9) * 0.65, 0.28, (Math.floor(i / 3) - 0.5) * 0.65);
+      group.add(marker);
+    }
+  } else {
+    const civic = ['temple', 'library', 'apothecary'].includes(type);
+    group.add(box(civic ? 2 : 1.7, civic ? 1.35 : 1, 1.5, civic ? p.cream : p.stone));
+    group.add(roof(civic ? 2.2 : 1.9, 1.7, 0.75, civic ? p.roof : p.roofDark, civic ? 1.72 : 1.35));
+  }
 
   return group;
 }

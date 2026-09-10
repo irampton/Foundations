@@ -11,9 +11,9 @@ npm ci
 npm run dev
 ```
 
-Open the localhost address printed by Vite. Start a new settlement, build Tents for **2 Wood each**, open Workers to create a Worker for **20 Food**, then assign Farmers, Woodcutters, or Miners. Spare housing reduces crowding. Food upkeep applies to every worker.
+Open the localhost address printed by Vite. Start a new settlement, research Masonry, build a Cottage, open Workers to create a Worker for **20 Food**, then assign a job. Spare housing reduces crowding. Food upkeep applies to every worker.
 
-This is a limited playable foundation: menu, Three.js settlement, manual/worker gathering, starter construction, resource ledger, and save/load. Technology is a nonfunctional preview. See [prototype scope and approved rule override](design/08-prototype.md).
+This playable foundation includes the complete five-Age economic technology tree, all non-religious buildings and resources, advanced production jobs, a Three.js settlement, and save/load. Religion, health, percentage workforce automation, and Wonders remain future implementation work.
 
 ## Controls
 

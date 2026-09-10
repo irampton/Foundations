@@ -1,8 +1,17 @@
 // Compact hiring and workforce rows; one shared quantity drives all assignment buttons.
 import { JOBS } from '../../game/catalog.js';
-import { happiness, housing, jobCount, unemployed } from '../../game/simulation.js';
+import { happiness, housing, jobCapacity, jobCount, unemployed } from '../../game/simulation.js';
 
-const labels = { farmer: 'Farmer', woodcutter: 'Woodcutter', miner: 'Miner' };
+const labels = {
+  farmer: 'Farmer',
+  woodcutter: 'Woodcutter',
+  miner: 'Miner',
+  tanner: 'Tanner',
+  blacksmith: 'Blacksmith',
+  apothecary: 'Apothecary',
+  cleric: 'Cleric',
+  librarian: 'Librarian',
+};
 
 export function renderWorkers(state) {
   const idle = unemployed(state);
@@ -16,13 +25,13 @@ export function renderWorkers(state) {
   <div class="job-list">${JOBS.map(
     (
       job,
-    ) => `<article class="job-row" title="${(0.2 * (0.5 + happiness(state) / 200)).toFixed(2)} resources per worker per second">
-    <span>${labels[job]} <b class="owned">${jobCount(state, job)}</b></span>
+    ) => `<article class="job-row" title="Capacity ${Number.isFinite(jobCapacity(state, job)) ? jobCapacity(state, job) : 'unlimited'}">
+    <span>${labels[job]} <b class="owned">${jobCount(state, job)}</b>${Number.isFinite(jobCapacity(state, job)) ? ` / ${jobCapacity(state, job)}` : ''}</span>
     <div class="assignment-controls">
       <button data-action="assign" data-job="${job}" data-amount="-1000000" aria-label="-All ${labels[job]}" title="Remove all" ${!jobCount(state, job) ? 'disabled' : ''}>−All</button>
       <button data-action="assign-custom" data-job="${job}" data-direction="-1" aria-label="Remove ${labels[job]}" title="Remove amount" ${!jobCount(state, job) ? 'disabled' : ''}>−</button>
-      <button data-action="assign-custom" data-job="${job}" data-direction="1" aria-label="Assign ${labels[job]}" title="Assign amount" ${!idle ? 'disabled' : ''}>+</button>
-      <button data-action="assign" data-job="${job}" data-amount="1000000" aria-label="Max ${labels[job]}" title="Assign all idle workers" ${!idle ? 'disabled' : ''}>Max</button>
+      <button data-action="assign-custom" data-job="${job}" data-direction="1" aria-label="Assign ${labels[job]}" title="Assign amount" ${!idle || jobCount(state, job) >= jobCapacity(state, job) ? 'disabled' : ''}>+</button>
+      <button data-action="assign" data-job="${job}" data-amount="1000000" aria-label="Max ${labels[job]}" title="Assign all idle workers" ${!idle || jobCount(state, job) >= jobCapacity(state, job) ? 'disabled' : ''}>Max</button>
     </div>
   </article>`,
   ).join('')}</div>

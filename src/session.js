@@ -1,5 +1,13 @@
 // Session lifecycle joins pure simulation, browser persistence, and presentation.
-import { createGame, gather, build, createWorkers, assign, tick } from './game/simulation.js';
+import {
+  createGame,
+  gather,
+  build,
+  createWorkers,
+  assign,
+  research,
+  tick,
+} from './game/simulation.js';
 import { serialize, deserialize } from './game/save.js';
 import { saveSlot, readSlot, listSlots } from './game/storage.js';
 import { createSettlementView } from './scene/settlement.js';
@@ -151,6 +159,8 @@ export function startApplication(root) {
       refresh();
     } else if (action === 'gather' && !isPaused())
       transaction(gather(state, button.dataset.resource));
+    else if (action === 'research' && !isPaused())
+      transaction(research(state, button.dataset.technology), true);
     else if (action === 'build' && !isPaused())
       transaction(build(state, button.dataset.building), true);
     else if (action === 'hire' && !isPaused()) transaction(createWorkers(state), true);
@@ -165,7 +175,7 @@ export function startApplication(root) {
           assign(state, button.dataset.job, quantity * Number(button.dataset.direction)),
           true,
         );
-    } else if (['gather', 'build', 'hire', 'assign', 'assign-custom'].includes(action))
+    } else if (['gather', 'build', 'hire', 'assign', 'assign-custom', 'research'].includes(action))
       notify('Resume the settlement to take this action.');
     else if (action === 'pause') {
       paused = !paused;
