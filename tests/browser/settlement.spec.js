@@ -39,6 +39,8 @@ test('fresh settlement gathers, constructs, hires, assigns, and produces', async
     .toBeGreaterThan(before.resources.wood);
   await page.getByRole('button', { name: '-All Woodcutter', exact: true }).click();
   await page.getByRole('button', { name: 'Assign Farmer', exact: true }).click();
+  await expect(page.locator('#top-stats .resource-rate').first()).toHaveText('+0.10/s');
+  await expect(page.locator('#simulation-status')).toHaveText('Running');
   await page.getByRole('button', { name: 'Resources', exact: true }).click();
   await expect(page.locator('.ledger-card').first()).toContainText('+0.20');
   await expect(page.locator('.ledger-card').first()).toContainText('−0.10');

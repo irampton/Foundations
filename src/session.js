@@ -70,9 +70,7 @@ export function startApplication(root) {
   }
 
   function refreshStatus() {
-    $('#simulation-status').textContent = isPaused()
-      ? 'Paused'
-      : `Day ${Math.floor(state.time / 120) + 1}`;
+    $('#simulation-status').textContent = isPaused() ? 'Paused' : 'Running';
     $('.live-dot').classList.toggle('paused', isPaused());
     $('#pause-button').innerHTML = icon(paused ? 'play' : 'pause');
     $('#pause-button').setAttribute(
@@ -80,7 +78,7 @@ export function startApplication(root) {
       paused ? 'Resume simulation' : 'Pause simulation',
     );
     const constructing = state.buildings.filter(
-      (building) => state.time - building.builtAt < 6,
+      (building) => state.seconds - building.builtAt < 2,
     ).length;
     $('#construction-status').textContent = constructing ? `Building: ${constructing}` : '';
     $('#construction-status').hidden = !constructing;
@@ -90,10 +88,7 @@ export function startApplication(root) {
     selectedSlot = Number($('#save-slot').value);
     const entry = listSlots().find((entry) => entry.slot === selectedSlot);
     $('#slot-detail').textContent =
-      entry.error ||
-      (entry.data
-        ? `Saved ${new Date(entry.data.savedAt).toLocaleString()}${entry.data.recovered ? ' · backup recovered' : ''}`
-        : '');
+      entry.error || (entry.data?.recovered ? 'Backup recovered' : '');
     $('[data-action="load"]').disabled = !entry.data;
   }
 
@@ -103,7 +98,7 @@ export function startApplication(root) {
     if (!hasSession) {
       const latest = slots
         .filter((entry) => entry.data)
-        .sort((a, b) => b.data.savedAt.localeCompare(a.data.savedAt))[0];
+        .sort((a, b) => b.data.savedSeconds - a.data.savedSeconds)[0];
       selectedSlot = latest?.slot ?? 1;
     }
     dialog.innerHTML = menuContent(slots, selectedSlot, hasSession, reducedMotion);
@@ -235,7 +230,7 @@ export function startApplication(root) {
         if (!mayReplace(selectedSlot)) return;
         saveSlot(selectedSlot, imported, 'Imported Settlement');
         enterSession(imported, selectedSlot, 'Imported Settlement');
-        notify('Settlement imported. No offline time was applied.');
+        notify('Settlement imported.');
       } catch (error) {
         notify(`Import failed: ${error.message}`);
       }

@@ -34,8 +34,8 @@ function canAfford(state, cost) {
 export function createGame(seed = 1) {
   if (!Number.isSafeInteger(seed)) throw new TypeError('Seed must be a safe integer');
   return {
-    version: 1,
-    time: 0,
+    version: 2,
+    seconds: 0,
     seed,
     rngState: seed >>> 0,
     layoutVersion: 1,
@@ -125,7 +125,7 @@ export function build(state, type, quantity = 1) {
   const built = [];
   for (let index = 0; index < quantity; index += 1) {
     const [x, z] = nextPosition(state.buildings);
-    const building = { id: state.nextBuildingId++, type, x, z, builtAt: state.time };
+    const building = { id: state.nextBuildingId++, type, x, z, builtAt: state.seconds };
     state.buildings.push(building);
     built.push(building);
   }
@@ -207,6 +207,6 @@ export function tick(state) {
       state.nextStarvationAt += 10;
     }
   }
-  state.time += 1;
+  state.seconds += 1;
   return { rates: currentRates };
 }

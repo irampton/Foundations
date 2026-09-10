@@ -25,6 +25,8 @@ This is a limited playable foundation: menu, Three.js settlement, manual/worker 
 
 The compact HUD keeps inventory at the top and gathering above the management tabs. Building effects use hover help. Workers share one assignment amount with minus/plus and All/Max controls; the resource tab shows production, consumption, and net rates without repeating inventory.
 
+The HUD also shows net resource change per second. There is no calendar or day counter. Buildings plop into place over two seconds; roads join adjacent blocks into a shared grid. Farm count and crop-bed size follow assigned Farmers, with bounded representative plots for large workforces. Version 1 saves migrate to the seconds-based version 2 schema automatically.
+
 The simulation pauses in menus and hidden tabs. There is no offline production. Three local slots are stored per browser and origin; export a JSON backup to transfer a settlement or keep it outside browser storage.
 
 ## Build and host

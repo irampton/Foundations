@@ -11,7 +11,7 @@ export const SAVE_LIMITS = Object.freeze({
 });
 const STATE_KEYS = Object.freeze([
   'version',
-  'time',
+  'seconds',
   'seed',
   'rngState',
   'layoutVersion',
@@ -52,8 +52,8 @@ function nonnegativeInteger(value, label) {
 export function validateState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) fail('root must be an object');
   exactKeys(state, STATE_KEYS, 'root');
-  if (state.version !== 1 || state.layoutVersion !== 1) fail('unsupported version');
-  nonnegativeInteger(state.time, 'time');
+  if (state.version !== 2 || state.layoutVersion !== 1) fail('unsupported version');
+  nonnegativeInteger(state.seconds, 'seconds');
   if (!Number.isSafeInteger(state.seed)) fail('seed must be a safe integer');
   nonnegativeInteger(state.rngState, 'rngState');
   if (state.rngState > 0xffff_ffff) fail('rngState must be an unsigned 32-bit integer');
@@ -92,8 +92,8 @@ export function validateState(state) {
       Math.abs(building.z) > SAVE_LIMITS.coordinateMagnitude
     )
       fail('building coordinates exceed world bounds');
-    if (!Number.isFinite(building.builtAt) || building.builtAt > state.time)
-      fail('invalid building time');
+    if (!Number.isFinite(building.builtAt) || building.builtAt > state.seconds)
+      fail('invalid building seconds');
     const coordinate = `${building.x},${building.z}`;
     if (coordinates.has(coordinate)) fail('building coordinates must be unique');
     coordinates.add(coordinate);
@@ -141,6 +141,11 @@ export function deserialize(text) {
     parsed = JSON.parse(text);
   } catch {
     fail('malformed JSON');
+  }
+  // Compatibility boundary for the original seconds counter's legacy field name.
+  if (parsed?.version === 1 && Object.hasOwn(parsed, 'time') && !Object.hasOwn(parsed, 'seconds')) {
+    const { time: seconds, ...legacy } = parsed;
+    parsed = { ...legacy, version: 2, seconds };
   }
   return validateState(parsed);
 }

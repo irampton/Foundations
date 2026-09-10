@@ -1,4 +1,4 @@
-/** Decorative terrain, forest, quarry, farm, roads, and animated worker figures. */
+/** Decorative terrain, forest, quarry, and animated worker figures. */
 import * as THREE from 'three';
 import { prepareMesh } from './materials.js';
 
@@ -32,7 +32,7 @@ export function createScenery(p, seed = 1) {
     tree.add(crown);
     group.add(tree);
   }
-  // Quarry stones and a tilled starter field give job locations a visual identity.
+  // Quarry stones give miners a visual workplace.
   for (let i = 0; i < 12; i += 1) {
     const rock = prepareMesh(
       new THREE.Mesh(new THREE.DodecahedronGeometry(0.25 + random() * 0.35, 0), p.stone),
@@ -41,25 +41,7 @@ export function createScenery(p, seed = 1) {
     rock.rotation.y = random() * 6;
     group.add(rock);
   }
-  const field = prepareMesh(new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.08, 3.8), p.soil));
-  field.position.set(8, 0.03, 6);
-  group.add(field);
-  for (let row = 0; row < 6; row += 1)
-    for (let col = 0; col < 8; col += 1) {
-      const crop = prepareMesh(new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.45, 5), p.wheat));
-      crop.position.set(6.2 + col * 0.52, 0.25, 4.7 + row * 0.5);
-      group.add(crop);
-    }
   return group;
-}
-
-export function createRoad(x, z, p) {
-  const length = Math.max(0.5, Math.hypot(x, z));
-  const road = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.035, length), p.road);
-  road.position.set(x / 2, 0.035, z / 2);
-  road.rotation.y = Math.atan2(x, z);
-  road.receiveShadow = true;
-  return road;
 }
 
 export function createOverflowHamlet(p) {
@@ -91,13 +73,17 @@ export function createWorker(p, id) {
   return group;
 }
 
-export function updateWorker(group, worker, time, reducedMotion) {
+export function updateWorker(group, worker, seconds, reducedMotion, farm = null) {
   const phase = group.userData.phase;
   const destinations = { farmer: [8, 6], woodcutter: [12, -3], miner: [-8, 5], unemployed: [0, 0] };
-  const [cx, cz] = destinations[worker.job] || destinations.unemployed;
+  const [cx, cz] =
+    farm && worker.job === 'farmer'
+      ? [farm.x, farm.z]
+      : destinations[worker.job] || destinations.unemployed;
   const speed = worker.job === 'unemployed' ? 0.18 : 0.42;
-  const radius = worker.job === 'unemployed' ? 3.2 : 1.8;
-  const t = reducedMotion ? phase : time * speed + phase;
+  const radius =
+    farm && worker.job === 'farmer' ? farm.size * 0.3 : worker.job === 'unemployed' ? 3.2 : 1.8;
+  const t = reducedMotion ? phase : seconds * speed + phase;
   group.position.set(
     cx + Math.cos(t) * radius,
     reducedMotion ? 0 : Math.abs(Math.sin(t * 5)) * 0.035,

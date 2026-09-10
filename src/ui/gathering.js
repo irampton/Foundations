@@ -1,6 +1,7 @@
 // Persistent gather buttons and the single inventory readout in the top bar.
 import { CATALOG } from '../game/catalog.js';
-import { capacity } from '../game/simulation.js';
+import { capacity, rates } from '../game/simulation.js';
+import { signed } from './format.js';
 import { icon } from './icons.js';
 
 export const resources = ['food', 'wood', 'stone'];
@@ -16,10 +17,11 @@ export function gatherCards(state) {
 }
 
 export function resourceStats(state, number) {
+  const output = rates(state);
   return resources
     .map(
       (key) =>
-        `<div class="top-resource" title="${CATALOG.resources[key].label}: stored / capacity">${icon(symbols[key])}<span>${CATALOG.resources[key].label}</span><strong>${number(state.resources[key])}<small> / ${capacity(state, key)}</small></strong></div>`,
+        `<div class="top-resource" title="${CATALOG.resources[key].label}: stored / capacity; net production before storage limits">${icon(symbols[key])}<span>${CATALOG.resources[key].label}</span><strong>${number(state.resources[key])}<small> / ${capacity(state, key)}</small></strong><span class="resource-rate ${output[key].net < 0 ? 'negative' : ''}">${signed(output[key].net)}/s</span></div>`,
     )
     .join('');
 }

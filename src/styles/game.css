@@ -34,6 +34,11 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.resource-rate {
+  font-size: 11px;
+  color: #4b7140;
+  font-variant-numeric: tabular-nums;
+}
 .top-actions {
   display: flex;
   gap: 6px;
@@ -139,7 +144,7 @@
   .top-stats {
     gap: 12px;
   }
-  .top-resource > span {
+  .top-resource > span:not(.resource-rate) {
     display: none;
   }
   .save-status {

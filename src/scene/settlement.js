@@ -3,14 +3,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createPalette, disposeGeometries, disposeObject } from './materials.js';
 import { createBuilding, updateConstruction } from './buildings.js';
-import {
-  createOverflowHamlet,
-  createRoad,
-  createScenery,
-  createWorker,
-  updateWorker,
-} from './environment.js';
-import { advanceDisplayTime, partitionBuildings, requiredTerrainRadius } from './layout.js';
+import { createOverflowHamlet, createScenery, createWorker, updateWorker } from './environment.js';
+import { partitionBuildings, requiredTerrainRadius } from './layout.js';
+import { roadSegments, createRoadNetwork } from './roads.js';
+import { farmLayout, createFarms } from './farms.js';
+import { advanceArrivalSeconds } from './plop.js';
 
 const MAX_BUILDINGS = 180;
 const MAX_WORKERS = 48;
@@ -97,10 +94,13 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
   let scenery = createScenery(palette, 1);
   world.add(scenery);
   const buildingLayer = new THREE.Group();
-  const roadLayer = new THREE.Group();
+  let roadLayer = new THREE.Group();
+  let farmLayer = new THREE.Group();
+  let plots = [];
+  let layoutSignature = '';
   const workerLayer = new THREE.Group();
   const overflowHamlet = createOverflowHamlet(palette);
-  world.add(roadLayer, buildingLayer, workerLayer, overflowHamlet);
+  world.add(roadLayer, farmLayer, buildingLayer, workerLayer, overflowHamlet);
   const buildings = new Map();
   const workers = new Map();
   let terrainRadius = 24;
@@ -108,8 +108,7 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
   let currentSeed = 1;
   let motionReduced = reducedMotion;
   let disposed = false;
-  let visualTime = 0;
-  let displayTimeInitialized = false;
+  let visualSeconds = 0;
   let previousState = null;
   controls.listenToKeyEvents(renderer.domElement);
 
@@ -144,12 +143,11 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
     const buildingPartition = partitionBuildings(state.buildings, MAX_BUILDINGS);
     const stateBuildings = buildingPartition.visible;
     const stateWorkers = Array.isArray(state.workers) ? state.workers.slice(0, MAX_WORKERS) : [];
-    const time = Number.isFinite(state.time) ? state.time : 0;
-    // A loaded session must start at its saved visual time, even when the menu was paused.
-    if (state !== previousState) displayTimeInitialized = false;
+    const seconds = Number.isFinite(state.seconds) ? state.seconds : 0;
+    const loaded = state !== previousState;
+    if (loaded) visualSeconds = seconds;
+    else if (!paused) visualSeconds += deltaSeconds;
     previousState = state;
-    visualTime = advanceDisplayTime(visualTime, time, deltaSeconds, displayTimeInitialized, paused);
-    displayTimeInitialized = true;
     const seed = Number.isFinite(state.seed) ? state.seed : 1;
     if (seed !== currentSeed) {
       world.remove(scenery);
@@ -167,41 +165,54 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
       if (!entry || entry.type !== data.type) {
         if (entry) {
           buildingLayer.remove(entry.model);
-          roadLayer.remove(entry.road);
           disposeGeometries(entry.model);
-          disposeGeometries(entry.road);
         }
         const model = createBuilding(data.type, palette);
-        const road = createRoad(data.x, data.z, palette);
         buildingLayer.add(model);
-        roadLayer.add(road);
-        entry = { model, road, type: data.type, roadX: data.x, roadZ: data.z };
+        entry = {
+          model,
+          type: data.type,
+          seconds: loaded ? Math.max(0, seconds - data.builtAt) : 0,
+        };
         buildings.set(key, entry);
-      } else if (entry.roadX !== data.x || entry.roadZ !== data.z) {
-        roadLayer.remove(entry.road);
-        disposeGeometries(entry.road);
-        entry.road = createRoad(data.x, data.z, palette);
-        entry.roadX = data.x;
-        entry.roadZ = data.z;
-        roadLayer.add(entry.road);
+      } else if (loaded) {
+        entry.seconds = Math.max(0, seconds - data.builtAt);
+      } else if (!paused) {
+        entry.seconds = advanceArrivalSeconds(entry.seconds, deltaSeconds, paused);
       }
       entry.model.position.set(data.x, 0.06, data.z);
-      updateConstruction(entry.model, visualTime - (data.builtAt ?? -10), motionReduced);
+      updateConstruction(entry.model, entry.seconds, motionReduced);
     });
     buildings.forEach((entry, key) => {
       if (!liveBuildings.has(key)) {
         buildingLayer.remove(entry.model);
-        roadLayer.remove(entry.road);
         disposeGeometries(entry.model);
-        disposeGeometries(entry.road);
         buildings.delete(key);
       }
     });
+    const farmers = (state.workers || []).filter((worker) => worker.job === 'farmer').length;
+    const signature = JSON.stringify([stateBuildings.map(({ id, x, z }) => [id, x, z]), farmers]);
+    if (signature !== layoutSignature) {
+      plots = farmLayout(farmers, stateBuildings);
+      world.remove(roadLayer, farmLayer);
+      disposeGeometries(roadLayer);
+      disposeGeometries(farmLayer);
+      roadLayer = createRoadNetwork(roadSegments(stateBuildings, plots), palette);
+      farmLayer = createFarms(plots, palette);
+      world.add(roadLayer, farmLayer);
+      layoutSignature = signature;
+    }
     scenery.children.forEach((object) => {
       if (object.userData.tree)
-        object.visible = !stateBuildings.some(
-          ({ x, z }) => Math.hypot(object.position.x - x, object.position.z - z) < 3,
-        );
+        object.visible =
+          !plots.some(
+            (plot) =>
+              Math.abs(object.position.x - plot.x) < plot.size / 2 + 1 &&
+              Math.abs(object.position.z - plot.z) < plot.size / 2 + 1,
+          ) &&
+          !stateBuildings.some(
+            ({ x, z }) => Math.hypot(object.position.x - x, object.position.z - z) < 3,
+          );
     });
     overflowHamlet.visible = buildingPartition.overflow > 0;
     overflowHamlet.scale.setScalar(
@@ -218,7 +229,7 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
         workers.set(key, model);
         workerLayer.add(model);
       }
-      updateWorker(model, data, visualTime, motionReduced);
+      updateWorker(model, data, visualSeconds, motionReduced, plots[data.id % plots.length]);
     });
     workers.forEach((model, key) => {
       if (!liveWorkers.has(key)) {
@@ -228,13 +239,8 @@ export function createSettlementView(container, { reducedMotion = false } = {}) 
       }
     });
 
-    contentRadius = Math.max(
-      12,
-      requiredTerrainRadius(Array.isArray(state.buildings) ? state.buildings : [], 4, 3),
-    );
-    const neededRadius = requiredTerrainRadius(
-      Array.isArray(state.buildings) ? state.buildings : [],
-    );
+    contentRadius = Math.max(12, requiredTerrainRadius([...stateBuildings, ...plots], 4, 5));
+    const neededRadius = requiredTerrainRadius([...(state.buildings || []), ...plots]);
     if (neededRadius > terrainRadius + 2) {
       world.remove(ground);
       ground.geometry.dispose();

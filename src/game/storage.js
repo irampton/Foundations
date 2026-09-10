@@ -16,10 +16,15 @@ function exactKeys(value, expected) {
 function decode(text) {
   if (!text) return null;
   const envelope = JSON.parse(text);
-  if (!exactKeys(envelope, ['name', 'savedAt', 'game'])) throw new Error('Invalid save slot.');
+  // Read the old date-based metadata only at the compatibility boundary.
+  if (exactKeys(envelope, ['name', 'savedAt', 'game'])) {
+    envelope.savedSeconds = Date.parse(envelope.savedAt) / 1000;
+    delete envelope.savedAt;
+  }
+  if (!exactKeys(envelope, ['name', 'savedSeconds', 'game'])) throw new Error('Invalid save slot.');
   if (typeof envelope.name !== 'string' || [...envelope.name].length > 60 || !envelope.name.trim())
     throw new Error('Invalid save slot.');
-  if (typeof envelope.savedAt !== 'string' || !Number.isFinite(Date.parse(envelope.savedAt)))
+  if (!Number.isFinite(envelope.savedSeconds) || envelope.savedSeconds < 0)
     throw new Error('Invalid save slot.');
   if (typeof envelope.game !== 'string') throw new Error('Invalid save slot.');
   return { ...envelope, state: deserialize(envelope.game) };
@@ -46,7 +51,7 @@ export function saveSlot(slot, state, name = 'Foundations Settlement', storage =
   deserialize(game);
   const snapshot = JSON.stringify({
     name: name.trim().slice(0, 60) || 'Foundations Settlement',
-    savedAt: new Date().toISOString(),
+    savedSeconds: Date.now() / 1000,
     game,
   });
   const previous = storage.getItem(key(slot));

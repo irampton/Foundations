@@ -1,6 +1,7 @@
-/** Procedural low-poly building models and their six-second construction animation. */
+/** Procedural low-poly building models and a two-second arrival animation. */
 import * as THREE from 'three';
 import { prepareMesh } from './materials.js';
+import { plopPose } from './plop.js';
 
 const box = (w, h, d, material, y = h / 2) => {
   const mesh = prepareMesh(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material));
@@ -80,36 +81,11 @@ export function createBuilding(type, p) {
   } else if (type === 'woodStockpile') pile(group, p.wood, false);
   else pile(group, p.stone, true);
 
-  group.traverse((child) => {
-    if (child.isMesh) child.userData.baseY = child.position.y;
-  });
-  const scaffold = new THREE.Group();
-  scaffold.userData.scaffold = true;
-  for (const x of [-1, 1])
-    for (const z of [-1, 1]) {
-      const post = box(0.07, 1.6, 0.07, p.wood, 0.8);
-      post.position.x = x * 0.9;
-      post.position.z = z * 0.75;
-      scaffold.add(post);
-    }
-  for (const z of [-1, 1]) {
-    const beam = box(1.9, 0.07, 0.07, p.wood, 1.35);
-    beam.position.z = z * 0.75;
-    scaffold.add(beam);
-  }
-  group.add(scaffold);
   return group;
 }
 
-export function updateConstruction(group, elapsed, reducedMotion = false) {
-  const progress = reducedMotion ? 1 : THREE.MathUtils.smoothstep(elapsed, 0, 6);
-  const scale = Math.max(0.04, progress);
-  const scaffold = group.children.find((child) => child.userData.scaffold);
-  if (scaffold) scaffold.visible = !reducedMotion && progress < 0.995;
-  group.traverse((child) => {
-    if (!child.isMesh || child.parent?.userData.scaffold) return;
-    child.scale.y = scale;
-    child.position.y = child.userData.baseY * scale;
-    child.castShadow = progress > 0.35;
-  });
+export function updateConstruction(group, seconds, reducedMotion = false) {
+  const pose = plopPose(seconds, reducedMotion);
+  group.scale.set(pose.xz, pose.y, pose.xz);
+  group.position.y = 0.06 + pose.lift;
 }
