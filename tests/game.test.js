@@ -107,27 +107,17 @@ test('production, upkeep, fractions, and crowding follow one-second rules', () =
   assert.ok(Math.abs(rates(state).food.gross - 0.6) < 1e-9);
 });
 
-test('starvation kills at 30 seconds, repeats every 10, and a fed tick resets it', () => {
+test('empty food immediately kills workers beyond current gross production support', () => {
   const state = createGame();
-  state.resources.skins = 4;
-  build(state, 'tent', 2);
-  createWorkers(state, 2);
+  state.resources.skins = 10;
+  build(state, 'tent', 5);
+  createWorkers(state, 5);
+  assign(state, 'farmer', 2);
   state.resources.food = 0;
-  for (let second = 0; second < 29; second += 1) tick(state);
-  assert.equal(state.workers.length, 2);
   tick(state);
-  assert.equal(state.workers.length, 1);
-  assert.equal(state.corpses, 1);
-  for (let second = 0; second < 10; second += 1) tick(state);
-  assert.equal(state.workers.length, 0);
+  assert.equal(state.workers.length, 3);
   assert.equal(state.corpses, 2);
-
-  state.resources.food = 20;
-  createWorkers(state, 1);
-  state.resources.food = 1;
-  tick(state);
-  assert.equal(state.shortageSeconds, 0);
-  assert.equal(state.nextStarvationAt, 30);
+  assert.equal(state.resources.food, 0);
 });
 
 test('new storage applies immediately and placement remains collision-free', () => {

@@ -24,6 +24,11 @@ const STATE_KEYS = Object.freeze([
   'corpses',
   'shortageSeconds',
   'nextStarvationAt',
+  'burialWork',
+  'healingWork',
+  'occupiedGraves',
+  'nextEventAt',
+  'lastEvent',
 ]);
 
 function fail(message) {
@@ -53,7 +58,7 @@ function nonnegativeInteger(value, label) {
 export function validateState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) fail('root must be an object');
   exactKeys(state, STATE_KEYS, 'root');
-  if (state.version !== 3 || state.layoutVersion !== 1) fail('unsupported version');
+  if (state.version !== 4 || state.layoutVersion !== 1) fail('unsupported version');
   nonnegativeInteger(state.age, 'age');
   if (state.age > 4) fail('invalid age');
   if (
@@ -72,6 +77,27 @@ export function validateState(state) {
   nonnegativeInteger(state.nextStarvationAt, 'nextStarvationAt');
   if (state.nextStarvationAt < 30 || state.nextStarvationAt % 10 !== 0)
     fail('invalid starvation threshold');
+  finiteNonnegative(state.burialWork, 'burialWork');
+  finiteNonnegative(state.healingWork, 'healingWork');
+  nonnegativeInteger(state.occupiedGraves, 'occupiedGraves');
+  nonnegativeInteger(state.nextEventAt, 'nextEventAt');
+  if (
+    state.occupiedGraves >
+    state.buildings?.filter?.((building) => building.type === 'graveyard').length * 100
+  )
+    fail('occupied graves exceed capacity');
+  if (state.lastEvent !== null) {
+    if (
+      !state.lastEvent ||
+      typeof state.lastEvent !== 'object' ||
+      !['sickness', 'wolves'].includes(state.lastEvent.type)
+    )
+      fail('invalid last event');
+    nonnegativeInteger(state.lastEvent.affected, 'lastEvent.affected');
+    nonnegativeInteger(state.lastEvent.at, 'lastEvent.at');
+    if (state.lastEvent.type === 'wolves')
+      nonnegativeInteger(state.lastEvent.defended, 'lastEvent.defended');
+  }
   nonnegativeInteger(state.nextBuildingId, 'nextBuildingId');
   nonnegativeInteger(state.nextWorkerId, 'nextWorkerId');
 
@@ -125,10 +151,13 @@ export function validateState(state) {
   for (const worker of state.workers) {
     if (!worker || typeof worker !== 'object' || Array.isArray(worker))
       fail('worker must be an object');
-    exactKeys(worker, ['id', 'job'], 'worker');
+    exactKeys(worker, ['id', 'job', 'sick', 'sickSeconds'], 'worker');
     if (!Number.isSafeInteger(worker.id) || worker.id < 1 || workerIds.has(worker.id))
       fail('worker IDs must be unique positive integers');
     if (worker.job !== 'unemployed' && !JOBS.includes(worker.job)) fail('unknown worker job');
+    if (typeof worker.sick !== 'boolean') fail('worker sickness must be boolean');
+    nonnegativeInteger(worker.sickSeconds, 'worker.sickSeconds');
+    if (!worker.sick && worker.sickSeconds !== 0) fail('healthy worker has sickness time');
     workerIds.add(worker.id);
     greatestWorkerId = Math.max(greatestWorkerId, worker.id);
   }
@@ -168,6 +197,18 @@ export function deserialize(text) {
       resources: Object.fromEntries(
         RESOURCE_KEYS.map((key) => [key, parsed.resources?.[key] ?? 0]),
       ),
+    };
+  }
+  if (parsed?.version === 3) {
+    parsed = {
+      ...parsed,
+      version: 4,
+      workers: parsed.workers.map((worker) => ({ ...worker, sick: false, sickSeconds: 0 })),
+      burialWork: 0,
+      healingWork: 0,
+      occupiedGraves: 0,
+      nextEventAt: Math.floor(parsed.seconds / 60 + 1) * 60,
+      lastEvent: null,
     };
   }
   return validateState(parsed);

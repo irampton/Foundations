@@ -20,6 +20,7 @@ export const JOBS = Object.freeze([
   'apothecary',
   'cleric',
   'librarian',
+  'soldier',
 ]);
 export const AGES = Object.freeze(['Settlement', 'Village', 'Town', 'City', 'Developed City']);
 const t = (age, cost, effect, prerequisites = []) =>

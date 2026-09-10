@@ -25,7 +25,7 @@ const has = (s, id) => s.technologies.includes(id),
 export function createGame(seed = 1) {
   if (!Number.isSafeInteger(seed)) throw new TypeError('Seed must be a safe integer');
   return {
-    version: 3,
+    version: 4,
     seconds: 0,
     seed,
     rngState: seed >>> 0,
@@ -42,6 +42,11 @@ export function createGame(seed = 1) {
     corpses: 0,
     shortageSeconds: 0,
     nextStarvationAt: 30,
+    burialWork: 0,
+    healingWork: 0,
+    occupiedGraves: 0,
+    nextEventAt: 60,
+    lastEvent: null,
   };
 }
 export function housing(s) {
@@ -64,7 +69,11 @@ export function capacity(s, r) {
   );
 }
 export const jobCount = (s, j) => s.workers.reduce((n, w) => n + Number(w.job === j), 0);
-export const unemployed = (s) => jobCount(s, 'unemployed');
+const activeJobCount = (s, j) => s.workers.reduce((n, w) => n + Number(w.job === j && !w.sick), 0);
+export const sickCount = (s) => s.workers.reduce((n, w) => n + Number(w.sick), 0);
+export const unemployed = (s) =>
+  s.workers.reduce((n, w) => n + Number(w.job === 'unemployed' && !w.sick), 0);
+export const graveCapacity = (s) => bc(s, 'graveyard') * 100;
 export function jobCapacity(s, j) {
   const capped = Object.values(CATALOG.buildings).some((b) => b.job === j);
   return capped
@@ -78,7 +87,8 @@ export function happiness(s) {
   let crowd = 50 * Math.max(0, (p / h - 0.8) / 0.2);
   if (has(s, 'codeOfLaws')) crowd /= 2;
   const bonus = has(s, 'aesthetics') ? Math.min(20, 2 * bc(s, 'temple')) : 0;
-  return Math.max(0, Math.min(100, 100 - crowd + bonus));
+  const illness = (30 * sickCount(s)) / p;
+  return Math.max(0, Math.min(100, 100 - crowd - illness + bonus));
 }
 const mult = (s, a, b) =>
   2 ** (Number(has(s, a)) + Number(b && has(s, b)) + Number(has(s, 'guilds')));
@@ -89,24 +99,24 @@ export function rates(s) {
       0.1 * ['domestication', 'ploughshares', 'irrigation'].filter((x) => has(s, x)).length +
       0.2 * ['cropRotation', 'selectiveBreeding', 'fertilisers'].filter((x) => has(s, x)).length,
     out = Object.fromEntries(RESOURCE_KEYS.map((k) => [k, { gross: 0, consumption: 0, net: 0 }]));
-  out.food.gross = jobCount(s, 'farmer') * base * happy * (1 + 0.05 * bc(s, 'mill'));
+  out.food.gross = activeJobCount(s, 'farmer') * base * happy * (1 + 0.05 * bc(s, 'mill'));
   out.food.consumption = s.workers.length * 0.1;
-  out.wood.gross = jobCount(s, 'woodcutter') * 0.2 * happy;
-  out.stone.gross = jobCount(s, 'miner') * 0.2 * happy;
+  out.wood.gross = activeJobCount(s, 'woodcutter') * 0.2 * happy;
+  out.stone.gross = activeJobCount(s, 'miner') * 0.2 * happy;
   if (has(s, 'skinning'))
-    out.skins.gross = jobCount(s, 'farmer') * 0.01 * mult(s, 'butchering', 'flensing');
+    out.skins.gross = activeJobCount(s, 'farmer') * 0.01 * mult(s, 'butchering', 'flensing');
   if (has(s, 'harvesting'))
-    out.herbs.gross = jobCount(s, 'woodcutter') * 0.01 * mult(s, 'gardening');
+    out.herbs.gross = activeJobCount(s, 'woodcutter') * 0.01 * mult(s, 'gardening');
   if (has(s, 'prospecting'))
-    out.ore.gross = jobCount(s, 'miner') * 0.01 * mult(s, 'extraction', 'macerating');
-  const leather = Math.min(jobCount(s, 'tanner') * 0.1, s.resources.skins),
-    metal = Math.min(jobCount(s, 'blacksmith') * 0.1, s.resources.ore);
+    out.ore.gross = activeJobCount(s, 'miner') * 0.01 * mult(s, 'extraction', 'macerating');
+  const leather = Math.min(activeJobCount(s, 'tanner') * 0.1, s.resources.skins),
+    metal = Math.min(activeJobCount(s, 'blacksmith') * 0.1, s.resources.ore);
   out.leather.gross = leather;
   out.skins.consumption = leather;
   out.metal.gross = metal;
   out.ore.consumption = metal;
-  out.piety.gross = jobCount(s, 'cleric') * 0.05 * (has(s, 'writing') ? 2 : 1);
-  out.science.gross = jobCount(s, 'librarian') * 0.1;
+  out.piety.gross = activeJobCount(s, 'cleric') * 0.05 * (has(s, 'writing') ? 2 : 1);
+  out.science.gross = activeJobCount(s, 'librarian') * 0.1;
   for (const v of Object.values(out)) v.net = v.gross - v.consumption;
   return out;
 }
@@ -190,7 +200,7 @@ export function createWorkers(s, q = 1) {
   s.resources.food -= cost;
   const workers = [];
   for (let i = 0; i < q; i++) {
-    const w = { id: s.nextWorkerId++, job: 'unemployed' };
+    const w = { id: s.nextWorkerId++, job: 'unemployed', sick: false, sickSeconds: 0 };
     s.workers.push(w);
     workers.push(w);
   }
@@ -202,7 +212,7 @@ export function assign(s, j, q) {
     return res(false, 'Assignment quantity must be a nonzero integer');
   const source = q > 0 ? 'unemployed' : j,
     target = q > 0 ? j : 'unemployed',
-    c = s.workers.filter((w) => w.job === source),
+    c = s.workers.filter((w) => w.job === source && !w.sick),
     room = q > 0 ? jobCapacity(s, j) - jobCount(s, j) : Infinity,
     amount = Math.min(Math.abs(q), c.length, room);
   for (let i = 0; i < amount; i++) c[i].job = target;
@@ -212,16 +222,95 @@ export function assign(s, j, q) {
     { amount },
   );
 }
-function kill(s) {
-  for (const j of DEATH) {
-    const i = s.workers.findIndex((w) => w.job === j);
-    if (i >= 0) {
-      const [w] = s.workers.splice(i, 1);
-      s.corpses++;
-      return w;
+function random(s) {
+  s.rngState = (Math.imul(s.rngState, 1664525) + 1013904223) >>> 0;
+  return s.rngState / 0x100000000;
+}
+function killAt(s, index, cause) {
+  const [worker] = s.workers.splice(index, 1);
+  if (!worker) return null;
+  s.corpses++;
+  return { worker, cause };
+}
+function killRandom(s, count, cause) {
+  const killed = [];
+  for (let i = 0; i < count && s.workers.length; i++)
+    killed.push(killAt(s, Math.floor(random(s) * s.workers.length), cause));
+  return killed;
+}
+function infectRandom(s, count) {
+  const healthy = s.workers.filter((worker) => !worker.sick);
+  let infected = 0;
+  for (let i = 0; i < count && healthy.length; i++) {
+    const index = Math.floor(random(s) * healthy.length);
+    const [worker] = healthy.splice(index, 1);
+    worker.sick = true;
+    worker.sickSeconds = 0;
+    worker.job = 'unemployed';
+    infected++;
+  }
+  return infected;
+}
+export function sicknessSpreadChance(s) {
+  const sick = sickCount(s);
+  const corpsePressure = Math.min(0.2, s.corpses / Math.max(20, s.workers.length * 5));
+  return Math.min(0.3, sick * 0.002 + corpsePressure);
+}
+export function triggerRandomEvent(s, forcedType = null) {
+  if (!s.workers.length) return null;
+  const type = forcedType ?? (random(s) < 0.5 ? 'sickness' : 'wolves');
+  if (type === 'sickness') {
+    const infected = infectRandom(s, Math.max(1, Math.ceil(s.workers.length * 0.05)));
+    return (s.lastEvent = { type, affected: infected, at: s.seconds });
+  }
+  const attackSize = Math.max(1, Math.ceil(s.workers.length * (0.03 + random(s) * 0.07)));
+  const casualties = Math.max(0, attackSize - activeJobCount(s, 'soldier'));
+  killRandom(s, casualties, 'wolves');
+  return (s.lastEvent = {
+    type,
+    affected: casualties,
+    defended: attackSize - casualties,
+    at: s.seconds,
+  });
+}
+function processDisease(s) {
+  const sick = s.workers.filter((worker) => worker.sick).sort((a, b) => a.id - b.id);
+  if (sick.length) {
+    const spreadChance = sicknessSpreadChance(s);
+    for (const worker of [...s.workers].sort((a, b) => a.id - b.id))
+      if (!worker.sick && random(s) < spreadChance) infectRandom(s, 1);
+    for (const worker of [...s.workers].filter((item) => item.sick)) {
+      worker.sickSeconds++;
+      if (worker.sickSeconds >= 90 && random(s) < 0.02) {
+        const index = s.workers.indexOf(worker);
+        if (index >= 0) killAt(s, index, 'sickness');
+      }
     }
   }
-  return null;
+  if (sickCount(s) && activeJobCount(s, 'apothecary') && s.resources.herbs > 0) {
+    s.healingWork += activeJobCount(s, 'apothecary') * 0.1;
+    while (s.healingWork >= 1 - 1e-9 && s.resources.herbs >= 1 && sickCount(s)) {
+      const worker = s.workers
+        .filter((item) => item.sick)
+        .sort((a, b) => b.sickSeconds - a.sickSeconds || a.id - b.id)[0];
+      worker.sick = false;
+      worker.sickSeconds = 0;
+      worker.job = 'unemployed';
+      s.resources.herbs--;
+      s.healingWork = Math.max(0, s.healingWork - 1);
+    }
+  } else s.healingWork %= 1;
+}
+function processBurials(s) {
+  const freeGraves = graveCapacity(s) - s.occupiedGraves;
+  if (s.corpses && freeGraves > 0 && activeJobCount(s, 'cleric')) {
+    s.burialWork += activeJobCount(s, 'cleric') * 0.1;
+    while (s.burialWork >= 1 - 1e-9 && s.corpses && s.occupiedGraves < graveCapacity(s)) {
+      s.burialWork = Math.max(0, s.burialWork - 1);
+      s.corpses--;
+      s.occupiedGraves++;
+    }
+  } else s.burialWork %= 1;
 }
 export function tick(s) {
   const current = rates(s);
@@ -237,12 +326,17 @@ export function tick(s) {
     s.nextStarvationAt = 30;
   } else {
     s.resources.food = 0;
-    s.shortageSeconds++;
-    if (s.workers.length && s.shortageSeconds >= s.nextStarvationAt) {
-      kill(s);
-      s.nextStarvationAt += 10;
-    }
+    const sustainable = Math.floor((current.food.gross + 1e-9) / 0.1);
+    const excess = Math.max(0, s.workers.length - sustainable);
+    killRandom(s, excess, 'starvation');
+    s.shortageSeconds = excess ? 1 : 0;
   }
+  processDisease(s);
+  processBurials(s);
   s.seconds++;
+  if (s.seconds >= s.nextEventAt) {
+    triggerRandomEvent(s);
+    s.nextEventAt += 60;
+  }
   return { rates: current };
 }

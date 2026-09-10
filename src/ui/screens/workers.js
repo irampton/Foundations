@@ -1,6 +1,14 @@
 // Compact hiring and workforce rows; one shared quantity drives all assignment buttons.
 import { JOBS } from '../../game/catalog.js';
-import { happiness, housing, jobCapacity, jobCount, unemployed } from '../../game/simulation.js';
+import {
+  graveCapacity,
+  happiness,
+  housing,
+  jobCapacity,
+  jobCount,
+  sickCount,
+  unemployed,
+} from '../../game/simulation.js';
 
 const labels = {
   farmer: 'Farmer',
@@ -11,6 +19,7 @@ const labels = {
   apothecary: 'Apothecary',
   cleric: 'Cleric',
   librarian: 'Librarian',
+  soldier: 'Soldier',
 };
 
 export function renderWorkers(state) {
@@ -19,6 +28,7 @@ export function renderWorkers(state) {
   return `<div class="worker-summary">
     <span>Idle <b>${idle}</b></span>
     <span title="Crowding above 80% housing occupancy reduces production">Happiness <b>${Math.round(happiness(state))}%</b></span>
+    <span>Sick <b>${sickCount(state)}</b></span>
   </div>
   <div class="hire-row"><button class="button" data-action="hire" aria-label="Create Worker" title="${full ? 'Build more housing' : 'New workers start unemployed and consume 0.1 Food/s'}" ${full || state.resources.food < 20 ? 'disabled' : ''}>Create worker</button><span class="cost">20 Food</span></div>
   <label class="quantity-field">Amount <input id="job-amount" aria-label="Assignment amount" type="number" min="1" max="1000000" step="1" value="1" /></label>
@@ -35,5 +45,5 @@ export function renderWorkers(state) {
     </div>
   </article>`,
   ).join('')}</div>
-  ${state.corpses ? `<div class="losses" title="Workers lost to food shortages">Deaths: ${state.corpses}</div>` : ''}`;
+  <div class="losses" title="Clerics bury corpses at 0.1 work/s when grave space is available">Unburied corpses: ${state.corpses} · Graves: ${state.occupiedGraves} / ${graveCapacity(state)}</div>`;
 }

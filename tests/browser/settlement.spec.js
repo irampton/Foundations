@@ -39,7 +39,7 @@ test('fresh settlement gathers, constructs, hires, assigns, and produces', async
   await expect(customAmount).toBeFocused();
   await expect(customAmount).toHaveValue('7');
   const before = await savedState(page);
-  expect(before.workers).toEqual([{ id: 1, job: 'woodcutter' }]);
+  expect(before.workers).toEqual([{ id: 1, job: 'woodcutter', sick: false, sickSeconds: 0 }]);
   await expect
     .poll(async () => (await savedState(page)).resources.wood, { timeout: 6000 })
     .toBeGreaterThan(before.resources.wood);

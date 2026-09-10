@@ -13,7 +13,7 @@ npm run dev
 
 Open the localhost address printed by Vite. Start a new settlement, research Masonry, build a Cottage, open Workers to create a Worker for **20 Food**, then assign a job. Spare housing reduces crowding. Food upkeep applies to every worker.
 
-This playable foundation includes the complete five-Age economic technology tree, all non-religious buildings and resources, advanced production jobs, a Three.js settlement, and save/load. Religion, health, percentage workforce automation, and Wonders remain future implementation work.
+This playable foundation includes the complete five-Age economic technology tree, all non-religious buildings and resources, advanced production jobs, starvation, sickness, healing, burial, wolf attacks, a Three.js settlement, and save/load. Religion, percentage workforce automation, and Wonders remain future implementation work.
 
 ## Controls
 
