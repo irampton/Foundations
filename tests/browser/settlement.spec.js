@@ -3,14 +3,17 @@ import { test, expect } from '@playwright/test';
 
 async function savedState(page) {
   await page.getByRole('button', { name: 'Save game', exact: true }).click();
-  return page.evaluate(() =>
-    JSON.parse(JSON.parse(localStorage.getItem('foundations.slot.1')).game),
-  );
+  return page.evaluate(() => {
+    const saves = JSON.parse(localStorage.getItem('foundations.saves'));
+    return JSON.parse(saves[saves.length - 1].game);
+  });
 }
 
 async function begin(page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'New game', exact: true }).click();
+  await page.getByLabel('Settlement name').fill('Test Settlement');
+  await page.getByRole('button', { name: 'Start new game', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 
@@ -71,7 +74,8 @@ test('pause and main menu prevent production; reload preserves jobs without offl
   await page.reload();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.waitForTimeout(1300);
-  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.getByRole('button', { name: 'Load save', exact: true }).click();
+  await page.getByRole('button', { name: /Test Settlement/ }).click();
   await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   expect(await savedState(page)).toEqual(paused);
 });
@@ -92,7 +96,8 @@ test('invalid imports preserve a valid slot; technology exposes the full tree', 
     buffer: Buffer.from('{"version":999}'),
   });
   await expect(page.locator('#menu-notice')).toContainText('Import failed');
-  await page.getByRole('button', { name: 'Load', exact: true }).click();
+  await page.getByRole('button', { name: 'Load save', exact: true }).click();
+  await page.getByRole('button', { name: /Test Settlement/ }).click();
   await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   const after = await savedState(page);
   expect(after.resources).toEqual(initial.resources);

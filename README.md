@@ -20,7 +20,7 @@ This playable foundation includes the complete five-Age economic technology tree
 - Left-drag to orbit; right-drag or canvas arrow keys to pan; scroll to zoom.
 - R resets the view; Space pauses when the page/canvas is focused.
 - 1 / 2 / 3 gather Food / Wood / Stone when the page/canvas is focused.
-- Use the menu button or Escape for save slots, import/export, and reduced motion. Hover the ? button for camera and gathering shortcuts.
+- Use the menu button or Escape to start a named settlement, load chronological autosaves, import/export, or enable reduced motion. Hover the ? button for camera and gathering shortcuts.
 - All management controls support keyboard focus. Custom worker amounts must be positive integers.
 
 The compact HUD keeps inventory at the top and gathering above the management tabs. Building effects use hover help. Workers share one assignment amount with minus/plus and All/Max controls; the resource tab shows production, consumption, and net rates without repeating inventory.

@@ -1,4 +1,4 @@
-/* Small native dialog for save slots and session actions. */
+/* Small native dialog for save history and session actions. */
 #menu-dialog {
   width: min(320px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
@@ -21,8 +21,9 @@ dialog::backdrop {
   margin: 16px 0 6px;
   font-size: 12px;
 }
-.menu-content select {
+.menu-content input {
   width: 100%;
+  box-sizing: border-box;
   padding: 7px;
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -36,12 +37,8 @@ dialog::backdrop {
 .menu-buttons button {
   flex: 1;
 }
-#slot-detail:empty,
 #menu-notice:empty {
   display: none;
-}
-#slot-detail {
-  margin: 8px 0;
 }
 #menu-notice {
   background: #f3dfcc;
@@ -58,4 +55,37 @@ dialog::backdrop {
 }
 .setting input {
   accent-color: #5e784c;
+}
+.menu-panel {
+  margin-top: 12px;
+}
+.menu-panel[hidden] {
+  display: none;
+}
+.menu-panel .full {
+  margin-top: 8px;
+}
+.save-entry {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fbfcf6;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.save-entry + .save-entry {
+  margin-top: 6px;
+}
+.save-entry span {
+  font-weight: 600;
+}
+.save-entry time {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
 }

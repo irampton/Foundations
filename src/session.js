@@ -9,7 +9,7 @@ import {
   tick,
 } from './game/simulation.js';
 import { serialize, deserialize } from './game/save.js';
-import { saveSlot, readSlot, listSlots } from './game/storage.js';
+import { saveGame, readSave, listSaves } from './game/storage.js';
 import { createSettlementView } from './scene/settlement.js';
 import { renderShell } from './ui/shell.js';
 import { renderPanel, renderStats } from './ui/panels.js';
@@ -26,8 +26,7 @@ export function startApplication(root) {
   const panel = $('#panel');
   let state = createGame(3719);
   let hasSession = false;
-  let slot = 1;
-  let selectedSlot = 1;
+  let saveId = null;
   let name = 'Foundations Settlement';
   let tab = 'settlement';
   let paused = false;
@@ -48,7 +47,7 @@ export function startApplication(root) {
   function save() {
     if (!hasSession) return true;
     try {
-      saveSlot(slot, state, name);
+      saveId = saveGame(state, name, saveId);
       $('#save-status').textContent = 'Saved';
       $('#export-recovery').hidden = true;
       return true;
@@ -92,34 +91,26 @@ export function startApplication(root) {
     $('#construction-status').hidden = !constructing;
   }
 
-  function slotDetail() {
-    selectedSlot = Number($('#save-slot').value);
-    const entry = listSlots().find((entry) => entry.slot === selectedSlot);
-    $('#slot-detail').textContent =
-      entry.error || (entry.data?.recovered ? 'Backup recovered' : '');
-    $('[data-action="load"]').disabled = !entry.data;
+  function renderMenu(mode = 'main') {
+    dialog.innerHTML = menuContent(listSaves(), hasSession, reducedMotion, mode);
+    if (mode === 'new') {
+      const input = $('#settlement-name');
+      input.value = '';
+      queueMicrotask(() => input.focus());
+    }
   }
 
   function openMenu() {
     if (!save()) return;
-    const slots = listSlots();
-    if (!hasSession) {
-      const latest = slots
-        .filter((entry) => entry.data)
-        .sort((a, b) => b.data.savedSeconds - a.data.savedSeconds)[0];
-      selectedSlot = latest?.slot ?? 1;
-    }
-    dialog.innerHTML = menuContent(slots, selectedSlot, hasSession, reducedMotion);
+    renderMenu();
     if (!dialog.open) dialog.showModal();
-    slotDetail();
     clock.reset();
     refreshStatus();
   }
 
-  function enterSession(nextState, nextSlot, nextName) {
+  function enterSession(nextState, nextName, nextSaveId = null) {
     state = nextState;
-    slot = nextSlot;
-    selectedSlot = slot;
+    saveId = nextSaveId;
     name = nextName;
     hasSession = true;
     paused = false;
@@ -130,16 +121,6 @@ export function startApplication(root) {
     view.resetView();
     refresh();
     $('.tab').focus();
-  }
-
-  function mayReplace(targetSlot) {
-    const entry = listSlots().find((entry) => entry.slot === targetSlot);
-    return (
-      (!entry.data && !entry.error) ||
-      window.confirm(
-        `Replace settlement slot ${targetSlot}? Its current progress will be overwritten. Cancel and export it first if you want to keep a copy.`,
-      )
-    );
   }
 
   function transaction(result, persist = false) {
@@ -190,32 +171,45 @@ export function startApplication(root) {
       dialog.close();
       clock.reset();
       refreshStatus();
-    } else if (action === 'new-game') {
-      if (!mayReplace(selectedSlot)) return;
+    } else if (action === 'show-new-game') renderMenu('new');
+    else if (action === 'show-load') renderMenu('load');
+    else if (action === 'new-game') {
+      const settlementName = $('#settlement-name').value.trim();
+      if (!settlementName) {
+        $('#menu-notice').textContent = 'Name your settlement before starting.';
+        $('#settlement-name').focus();
+        return;
+      }
       const nextState = createGame(Math.floor(Math.random() * 0xffffffff));
       try {
-        saveSlot(selectedSlot, nextState, 'Foundations Settlement');
-        enterSession(nextState, selectedSlot, 'Foundations Settlement');
+        const nextSaveId = saveGame(nextState, settlementName);
+        enterSession(nextState, settlementName, nextSaveId);
       } catch (error) {
         notify(`New settlement could not be saved: ${error.message}`);
       }
     } else if (action === 'load') {
       try {
-        const snapshot = readSlot(selectedSlot);
-        if (snapshot) enterSession(snapshot.state, selectedSlot, snapshot.name);
+        const snapshot = readSave(button.dataset.saveId);
+        // A loaded snapshot becomes a new play-session entry on its next save.
+        if (snapshot) enterSession(snapshot.state, snapshot.name);
       } catch (error) {
         notify(error.message);
       }
     } else if (action === 'export') {
       try {
-        const snapshot = dialog.open ? readSlot(selectedSlot)?.state : hasSession ? state : null;
+        const snapshot = hasSession ? state : readSave(listSaves().saves.at(-1)?.id)?.state;
         if (!snapshot) return notify('Choose a saved settlement to export.');
         const url = URL.createObjectURL(
           new Blob([serialize(snapshot)], { type: 'application/json' }),
         );
         const link = document.createElement('a');
         link.href = url;
-        link.download = `foundations-slot-${selectedSlot}.json`;
+        link.download = `foundations-${
+          name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '') || 'settlement'
+        }.json`;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       } catch (error) {
@@ -225,7 +219,6 @@ export function startApplication(root) {
   });
 
   root.addEventListener('change', async (event) => {
-    if (event.target.id === 'save-slot') slotDetail();
     if (event.target.id === 'reduced-motion') {
       reducedMotion = event.target.checked;
       view.setReducedMotion(reducedMotion);
@@ -237,9 +230,9 @@ export function startApplication(root) {
       try {
         if (file.size > 10_000_000) throw new Error('Save files must be smaller than 10 MB.');
         const imported = deserialize(await file.text());
-        if (!mayReplace(selectedSlot)) return;
-        saveSlot(selectedSlot, imported, 'Imported Settlement');
-        enterSession(imported, selectedSlot, 'Imported Settlement');
+        const importedName = file.name.replace(/\.json$/i, '').trim() || 'Imported Settlement';
+        const importedSaveId = saveGame(imported, importedName);
+        enterSession(imported, importedName, importedSaveId);
         notify('Settlement imported.');
       } catch (error) {
         notify(`Import failed: ${error.message}`);
